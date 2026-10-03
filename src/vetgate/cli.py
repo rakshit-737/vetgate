@@ -34,6 +34,11 @@ def _emit(findings: List[Finding], meta: dict, target: str, args) -> None:
             fh.write(R.build_markdown(findings, grade, meta, target))
         if not args.json:
             print(f"\nMarkdown report written to {args.md}")
+    if getattr(args, "sarif", None):
+        with open(args.sarif, "w", encoding="utf-8") as fh:
+            fh.write(R.build_sarif(findings, grade, meta, target))
+        if not args.json:
+            print(f"SARIF report written to {args.sarif}")
     if getattr(args, "explain", False) and findings and not args.json:
         from vetgate.explain import explain
         print("\nExplanations:")
@@ -123,6 +128,8 @@ def build_parser() -> argparse.ArgumentParser:
     def add_common(sp):
         sp.add_argument("--json", action="store_true", help="machine-readable output")
         sp.add_argument("--md", metavar="FILE", help="also write a Markdown report")
+        sp.add_argument("--sarif", metavar="FILE",
+                        help="also write a SARIF 2.1.0 report (GitHub code scanning)")
         sp.add_argument("--fail-on", choices=list(_FAIL_LEVELS), default="high",
                         help="exit non-zero if a finding at/above this severity exists (default: high)")
 

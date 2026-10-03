@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+### Added
+- `--sarif FILE` on `scan` and `watch`: SARIF 2.1.0 output for GitHub code scanning, with
+  per-rule `security-severity` so findings land in GitHub's critical/high/medium/low buckets
+  and hidden-on-another-ref findings are labelled in the message.
+
+### Fixed
+- Windows: `vetgate demo` and any scan with findings crashed with `UnicodeEncodeError` when
+  stdout was piped or redirected (cp1252). The CLI and benchmark runner now write UTF-8.
+- Windows: the hidden-branch test was always skipped because git detection shelled out to
+  `/dev/null`; it now uses `shutil.which`.
+
 ## 0.1.0 — first public release
 - **Personal-config watchdog** (`vetgate baseline` / `vetgate watch`): signed baseline of
   your own `~/.claude`, `~/.cursor`, `~/.vscode`, `~/.codex`, user LaunchAgents / systemd
@@ -15,4 +27,4 @@
   agent-directed imperatives, credential paths, squattable placeholder domains, base64 payloads.
 - Deterministic A–F Workspace Trust grade; optional offline `--explain`.
 - Surfaces: CLI, pre-commit hook, GitHub Action, Claude Code SessionStart hook.
-- Benchmark: 26-case labelled corpus with a precision/recall harness (`bench/run_bench.py`).
+- Benchmark: 34-case labelled corpus with a precision/recall harness (`bench/run_bench.py`).

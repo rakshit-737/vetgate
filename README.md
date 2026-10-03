@@ -8,6 +8,7 @@ A local-first **watchdog for your own agent config** + an **all-branches sweep**
 
 [![ci](https://github.com/rakshit-737/vetgate/actions/workflows/ci.yml/badge.svg)](https://github.com/rakshit-737/vetgate/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/vetgate.svg)](https://pypi.org/project/vetgate/)
+
 [![Python](https://img.shields.io/pypi/pyversions/vetgate.svg)](https://pypi.org/project/vetgate/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 

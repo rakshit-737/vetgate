@@ -1,0 +1,7 @@
+- id: vetgate
+  name: vetgate (AI-agent trust scan)
+  description: Flags auto-run hooks, run-on-open tasks and hidden/injected instructions before they land.
+  entry: vetgate scan . --fail-on high
+  language: python
+  pass_filenames: false
+  always_run: true

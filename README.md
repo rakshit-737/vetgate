@@ -126,8 +126,9 @@ repos:
 ## Does it actually work? (benchmark)
 
 ```
-vetgate benchmark — 26 cases (14 dangerous / 12 benign)
-  precision=1.00  recall=1.00  F1=1.00  accuracy=1.00
+vetgate benchmark — 34 cases (19 dangerous / 15 benign)
+  TP=19  FP=0  TN=15  FN=0
+  precision=1.000  recall=1.000  F1=1.000  accuracy=1.000
 ```
 
 Run it yourself: `python bench/run_bench.py`. **Honest framing:** this corpus is authored alongside the detectors, so a clean sweep proves *self-consistency and zero false positives on common-legit configs*, not independent robustness. The benign half is deliberately full of the legitimate patterns naive scanners over-flag. The best contribution you can make is an **adversarial case that vetgate misses** — see [CONTRIBUTING](CONTRIBUTING.md).

@@ -1,5 +1,7 @@
 """End-to-end tests over the bundled corpus and the two headline wedges."""
+import io
 import os
+import shutil
 import sys
 import tempfile
 
@@ -9,12 +11,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "bench"))
 
 from corpus import generate  # noqa: E402
 
+from vetgate import cli
 from vetgate import watch as W
 from vetgate.demo import build_benign_repo, build_vulnerable_repo
 from vetgate.engine import scan_workspace
 from vetgate.model import Severity, grade_findings
 
-HAS_GIT = os.system("git --version >/dev/null 2>&1") == 0
+HAS_GIT = shutil.which("git") is not None
 
 
 def _has_high(findings):
@@ -138,3 +141,12 @@ def _tmp_file(name, content):
     with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
         fh.write(content)
     return d
+
+
+def test_cli_survives_non_utf8_stdout(tmp_path, monkeypatch):
+    # Windows pipes default to cp1252; the rich report must not crash on its glyphs
+    buf = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(buf, encoding="cp1252"))
+    assert cli.main(["demo", str(tmp_path / "demo")]) == 0
+    sys.stdout.flush()
+    assert "Workspace Trust" in buf.getvalue().decode("utf-8")

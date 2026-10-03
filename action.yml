@@ -22,10 +22,14 @@ runs:
     - shell: bash
       run: pipx install vetgate || pip install --user vetgate
     - shell: bash
+      env:
+        VG_PATH: ${{ inputs.path }}
+        VG_FAIL_ON: ${{ inputs.fail-on }}
+        VG_ALL_REFS: ${{ inputs.all-refs }}
       run: |
-        ARGS="--fail-on ${{ inputs.fail-on }} --md vetgate-report.md"
-        if [ "${{ inputs.all-refs }}" = "true" ]; then ARGS="--all-refs $ARGS"; fi
-        vetgate scan "${{ inputs.path }}" $ARGS
+        ARGS=(--fail-on "$VG_FAIL_ON" --md vetgate-report.md)
+        if [ "$VG_ALL_REFS" = "true" ]; then ARGS=(--all-refs "${ARGS[@]}"); fi
+        vetgate scan "$VG_PATH" "${ARGS[@]}"
     - if: always()
       shell: bash
       run: |

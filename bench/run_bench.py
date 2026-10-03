@@ -29,6 +29,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--md")
     args = ap.parse_args()
+    # Windows pipes default to the ANSI code page, which can't encode the ✓/✗ outcome marks.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     base = tempfile.mkdtemp(prefix="vetgate-bench-")
     cases = generate(base)

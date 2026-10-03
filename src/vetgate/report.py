@@ -137,6 +137,10 @@ def build_json(findings: List[Finding], grade: Grade, meta: dict, target: str) -
     }, indent=2)
 
 
+def _md_cell(text) -> str:
+    return " ".join(str(text).splitlines()).replace("|", r"\|")
+
+
 def build_markdown(findings: List[Finding], grade: Grade, meta: dict, target: str) -> str:
     lines = [f"# vetgate report — `{target}`", "",
              f"**Workspace Trust grade: {grade.letter}**  ",
@@ -147,7 +151,7 @@ def build_markdown(findings: List[Finding], grade: Grade, meta: dict, target: st
     if hidden:
         lines += ["## ⚑ Hidden on a non-checked-out ref", ""]
         for f in hidden:
-            lines.append(f"- **[{f.ref}] {f.title}** — `{f.path}` — {f.detail}")
+            lines.append(f"- **[{f.ref}] {_md_cell(f.title)}** — `{_md_cell(f.path)}` — {_md_cell(f.detail)}")
         lines.append("")
     lines += ["## Findings", "",
               "| Severity | Surface | Finding | Where | Triggers |",
@@ -156,7 +160,8 @@ def build_markdown(findings: List[Finding], grade: Grade, meta: dict, target: st
         where = f.path + (f":{f.line}" if f.line else "")
         if f.ref not in ("working-tree", "local-config"):
             where = f"[{f.ref}] " + where
-        lines.append(f"| {f.severity.label} | {f.surface} | {f.title} | `{where}` | {f.trigger} |")
+        lines.append(f"| {f.severity.label} | {_md_cell(f.surface)} | {_md_cell(f.title)} | "
+                     f"`{_md_cell(where)}` | {_md_cell(f.trigger)} |")
     if meta.get("refs_scanned"):
         lines += ["", f"_refs swept: {meta['refs_scanned']}/{meta['refs_total']}"
                   + ("  (TRUNCATED at --max-refs)" if meta.get("truncated") else "") + "_"]

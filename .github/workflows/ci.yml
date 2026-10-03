@@ -1,0 +1,24 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for the all-refs sweep in the benchmark
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: ruff check src
+      - run: pytest -q
+      - run: python bench/run_bench.py --md bench/RESULTS.md
+      - if: always()
+        run: cat bench/RESULTS.md >> "$GITHUB_STEP_SUMMARY"

@@ -22,6 +22,14 @@ BIDI = {0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069}
 # Unicode TAG block: invisible, increasingly used to conceal instructions inside
 # MCP tool metadata and to exploit the approval-view fidelity gap.
 TAG_BLOCK = range(0xE0000, 0xE0080)
+# Variation selectors: runs of them (and any supplementary one) can encode hidden bytes.
+VS_BASIC = range(0xFE00, 0xFE10)
+VS_SUPPLEMENT = range(0xE0100, 0xE01F0)
+ZWJ = 0x200D
+
+
+def _is_emoji(cp: int) -> bool:
+    return cp >= 0x1F000 or 0x2600 <= cp <= 0x27BF or cp in VS_BASIC or 0x2190 <= cp <= 0x2BFF
 
 
 def scan_hidden_unicode(text: str) -> List[Tuple[int, int, str]]:
@@ -33,6 +41,12 @@ def scan_hidden_unicode(text: str) -> List[Tuple[int, int, str]]:
             hits.append((cp, i, "bidi-override"))
         elif cp in TAG_BLOCK:
             hits.append((cp, i, "unicode-tag"))
+        elif cp in VS_SUPPLEMENT or (cp in VS_BASIC and i > 0 and ord(text[i - 1]) in VS_BASIC):
+            hits.append((cp, i, "variation-selector"))
+        elif cp == 0xFEFF and i == 0:
+            continue
+        elif cp == ZWJ and 0 < i < len(text) - 1 and _is_emoji(ord(text[i - 1])) and _is_emoji(ord(text[i + 1])):
+            continue
         elif cp in ZERO_WIDTH:
             hits.append((cp, i, "zero-width"))
         elif cp not in (0x09, 0x0A, 0x0D) and unicodedata.category(ch) in ("Cc", "Cf"):
@@ -46,6 +60,10 @@ CONFUSABLES = {
     "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y",
     "і": "i", "ј": "j", "ѕ": "s", "ԁ": "d", "ɡ": "g", "ⅼ": "l", "ο": "o",
     "ρ": "p", "ɑ": "a", "һ": "h", "ԛ": "q", "ԝ": "w", "ｅ": "e", "０": "0",
+    "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O",
+    "Р": "P", "С": "C", "Т": "T", "Х": "X", "Ѕ": "S", "І": "I", "Ј": "J",
+    "Α": "A", "Β": "B", "Ε": "E", "Ζ": "Z", "Η": "H", "Ι": "I", "Κ": "K",
+    "Μ": "M", "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T", "Χ": "X", "Υ": "Y",
 }
 
 
@@ -79,7 +97,8 @@ EXEC_ENV_VARS = {
 }
 
 _ENV_ASSIGN = re.compile(
-    r"(?:^|[\s;&|])(?:export\s+|set\s+|setenv\s+)?(?P<name>[A-Z_][A-Z0-9_]*)\s*=",
+    r"(?:^|[\s;&|])(?:(?P<ci>(?i:set)\s+|\$(?i:env):)|export\s+|setenv\s+)?"
+    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=",
     re.MULTILINE,
 )
 
@@ -88,8 +107,10 @@ def find_exec_env_assignments(text: str) -> List[Tuple[str, int]]:
     """Return (VARNAME, char_offset) for assignments to code-exec env vars."""
     hits = []
     for m in _ENV_ASSIGN.finditer(text):
-        if m.group("name") in EXEC_ENV_VARS:
-            hits.append((m.group("name"), m.start("name")))
+        # cmd `set` and PowerShell `$env:` names are case-insensitive; POSIX ones are not.
+        name = m.group("name").upper() if m.group("ci") else m.group("name")
+        if name in EXEC_ENV_VARS:
+            hits.append((name, m.start("name")))
     return hits
 
 

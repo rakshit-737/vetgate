@@ -150,12 +150,13 @@ def _snapshot(roots: List[str]) -> Dict[str, dict]:
             st = os.stat(full)
             if st.st_size > MAX_BYTES or not stat.S_ISREG(st.st_mode):
                 continue
-            with open(full, "r", encoding="utf-8", errors="replace") as fh:
-                content = fh.read()
+            with open(full, "rb") as fh:
+                raw = fh.read()
         except OSError:
             continue
+        content = raw.decode("utf-8", "replace")
         entry = {
-            "sha256": hashlib.sha256(content.encode("utf-8", "replace")).hexdigest(),
+            "sha256": hashlib.sha256(raw).hexdigest(),
             "size": st.st_size,
             "mtime": st.st_mtime,
         }
@@ -199,9 +200,9 @@ def _baseline_tampered(baseline: dict) -> bool:
     if not os.path.exists(SIG_PATH):
         return True
     payload = json.dumps(baseline, sort_keys=True, separators=(",", ":")).encode()
-    with open(SIG_PATH, "r", encoding="utf-8") as fh:
+    with open(SIG_PATH, "rb") as fh:
         stored = fh.read().strip()
-    return not hmac.compare_digest(stored, _sign(payload))
+    return not hmac.compare_digest(stored, _sign(payload).encode())
 
 
 def _attribution(path: str) -> str:
@@ -237,24 +238,33 @@ def _describe(ids_delta: Dict[str, int]) -> str:
     return ", ".join(bits) if bits else "content changed"
 
 
+def _tamper_finding(detail: str) -> Finding:
+    extra = ("" if key_mode() == "passphrase" else
+             " (Note: in stored-key mode the key lives next to the baseline, so a "
+             "process running as you could also re-sign — set VETGATE_PASSPHRASE for "
+             "true tamper-resistance.)")
+    return Finding(
+        id="watchdog.tampered", title="vetgate baseline signature invalid",
+        severity=Severity.CRITICAL, surface="watchdog", path=BASELINE_PATH,
+        detail=detail + extra,
+        trigger="would hide subsequent config changes from this watchdog",
+        recommendation="Re-create the baseline on a known-good machine (`vetgate baseline`).",
+        tags=["watchdog", "tamper"])
+
+
 def diff_against_baseline(roots: Optional[List[str]] = None) -> List[Finding]:
     baseline = load_baseline()
     if baseline is None:
+        # a leftover signature means a baseline existed and was deleted
+        if os.path.exists(SIG_PATH):
+            return [_tamper_finding("The baseline file is missing but its signature remains — "
+                                    "it was deleted outside vetgate.")]
         raise FileNotFoundError("no baseline — run `vetgate baseline` first")
 
     findings: List[Finding] = []
     if _baseline_tampered(baseline):
-        extra = ("" if key_mode() == "passphrase" else
-                 " (Note: in stored-key mode the key lives next to the baseline, so a "
-                 "process running as you could also re-sign — set VETGATE_PASSPHRASE for "
-                 "true tamper-resistance.)")
-        findings.append(Finding(
-            id="watchdog.tampered", title="vetgate baseline signature invalid",
-            severity=Severity.CRITICAL, surface="watchdog", path=BASELINE_PATH,
-            detail="The baseline does not match its HMAC signature — it was edited outside vetgate." + extra,
-            trigger="would hide subsequent config changes from this watchdog",
-            recommendation="Re-create the baseline on a known-good machine (`vetgate baseline`).",
-            tags=["watchdog", "tamper"]))
+        findings.append(_tamper_finding(
+            "The baseline does not match its HMAC signature — it was edited outside vetgate."))
 
     roots = roots or baseline.get("roots", DEFAULT_ROOTS)
     now = _snapshot(roots)

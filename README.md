@@ -75,6 +75,7 @@ vetgate scan .                         # pre-flight a repo before you open it in
 vetgate scan --all-refs --explain      # add branch sweep + plain-English explanations
 vetgate baseline                       # snapshot your own ~/.claude, ~/.cursor, ...
 vetgate watch                          # what changed since — you or the agent?
+vetgate scan --all-refs --sarif vetgate.sarif   # SARIF 2.1.0 for GitHub code scanning
 ```
 
 Core mode is **offline, deterministic, no API key.** It runs on a laptop in well under a second.
@@ -121,6 +122,18 @@ repos:
   with: { fail-on: high }
 ```
 
+**GitHub code scanning** — `--sarif FILE` writes SARIF 2.1.0 (also works with `watch`), so findings land in the Security tab with GitHub's critical/high/medium/low buckets:
+```yaml
+permissions: { security-events: write }
+steps:
+  - uses: actions/checkout@v4
+    with: { fetch-depth: 0 }
+  - run: pipx install git+https://github.com/rakshit-737/vetgate
+  - run: vetgate scan --all-refs --sarif vetgate.sarif --fail-on none
+  - uses: github/codeql-action/upload-sarif@v4
+    with: { sarif_file: vetgate.sarif }
+```
+
 **Claude Code SessionStart hook** — let vetgate guard the very surface it audits (it runs the read-only watchdog, the opposite of the hooks it flags). See [`docs/sessionstart-hook.md`](docs/sessionstart-hook.md).
 
 ## Does it actually work? (benchmark)
@@ -145,7 +158,7 @@ vetgate is a detection aid, not a guarantee. A clean report means "no check fire
 
 ## Background & roadmap
 
-The incidents that motivated each check (public advisories): the [keyv npm worm planting agent/IDE hooks](https://snyk.io/blog/inside-keyv-npm-compromise-preinstall-malware-trusted-provenance-ide-hooks/), [Deadbugz MCP metadata poisoning](https://www.pillar.security/blog/deadbugz-currently-active-mcp-supply-chain-campaign), [weaponized placeholder domains in agent skills](https://thehackernews.com/2026/09/placeholder-third-partycom-referenced.html), and [self-propagating instructions in agent files](https://thehackernews.com/2026/08/ai-mind-viruses-can-spread-between.html). What's next is in [`docs/roadmap.md`](docs/roadmap.md) (MCP-server surface, real-time `watch --daemon`, SARIF output).
+The incidents that motivated each check (public advisories): the [keyv npm worm planting agent/IDE hooks](https://snyk.io/blog/inside-keyv-npm-compromise-preinstall-malware-trusted-provenance-ide-hooks/), [Deadbugz MCP metadata poisoning](https://www.pillar.security/blog/deadbugz-currently-active-mcp-supply-chain-campaign), [weaponized placeholder domains in agent skills](https://thehackernews.com/2026/09/placeholder-third-partycom-referenced.html), and [self-propagating instructions in agent files](https://thehackernews.com/2026/08/ai-mind-viruses-can-spread-between.html). What's next is in [`docs/roadmap.md`](docs/roadmap.md) (MCP-server surface, real-time `watch --daemon`, sharper attribution).
 
 ## License
 [Apache-2.0](LICENSE) — permissive, use it anywhere. Contributions welcome under [CONTRIBUTING](CONTRIBUTING.md); report issues privately per [SECURITY](SECURITY.md).

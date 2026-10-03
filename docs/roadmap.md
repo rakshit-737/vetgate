@@ -13,7 +13,8 @@ Action, Claude Code SessionStart hook). What's next, roughly in order:
   process ownership to sharpen the "you or the agent?" verdict beyond today's heuristic.
 - **Richer instruction analysis** — split-string and templated-command reassembly,
   broader TR39 confusable coverage, optional live RDAP domain-age enrichment.
-- **`--sarif` output** for GitHub code scanning; signed JSON attestations of a clean scan.
+- **Signed JSON attestations** of a clean scan (SARIF output for GitHub code scanning has
+  shipped: `--sarif FILE`).
 - **More conventions** as the ecosystem invents them (new agent rule files, registries).
 
 Want one of these sooner? Open an issue — or better, a failing `bench/corpus.py` case.

@@ -150,3 +150,26 @@ def test_cli_survives_non_utf8_stdout(tmp_path, monkeypatch):
     assert cli.main(["demo", str(tmp_path / "demo")]) == 0
     sys.stdout.flush()
     assert "Workspace Trust" in buf.getvalue().decode("utf-8")
+
+
+def test_sarif_report(tmp_path):
+    import json
+    repo = tmp_path / "repo"
+    build_vulnerable_repo(str(repo))
+    out = tmp_path / "vetgate.sarif"
+    rc = cli.main(["scan", str(repo), "--all-refs", "--sarif", str(out), "--fail-on", "none"])
+    assert rc == 0
+    sarif = json.loads(out.read_text(encoding="utf-8"))
+    assert sarif["version"] == "2.1.0"
+    run = sarif["runs"][0]
+    rule_ids = {r["id"] for r in run["tool"]["driver"]["rules"]}
+    assert run["results"]
+    for res in run["results"]:
+        assert res["ruleId"] in rule_ids
+        assert res["level"] in ("error", "warning", "note")
+        uri = res["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        assert "\\" not in uri
+    crit = [r for r in run["results"] if r["properties"]["severity"] == "CRITICAL"]
+    assert crit and all(r["level"] == "error" for r in crit)
+    if HAS_GIT:
+        assert any(r["properties"]["onlyOnRef"] for r in run["results"])

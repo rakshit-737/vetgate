@@ -105,14 +105,15 @@ def _strip_jsonc_comments(text: str) -> str:
 def _loads_jsonc(text: str):
     """Parse JSON or JSONC. Returns the object, or the _PARSE_FAIL sentinel if neither
     strict JSON nor comment-stripped JSONC parses — so callers can fail CLOSED."""
+    text = text.lstrip("﻿")
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
+    except (ValueError, RecursionError):
         pass
     cleaned = _TRAILING_COMMA_RX.sub(r"\1", _strip_jsonc_comments(text))
     try:
         return json.loads(cleaned)
-    except json.JSONDecodeError:
+    except (ValueError, RecursionError):
         return _PARSE_FAIL
 
 
@@ -261,7 +262,8 @@ def _vscode_tasks(rel, text, ref) -> List[Finding]:
     for task in data.get("tasks", []) if isinstance(data.get("tasks"), list) else []:
         if not isinstance(task, dict):
             continue
-        runon = (task.get("runOptions", {}) or {}).get("runOn")
+        ro = task.get("runOptions")
+        runon = ro.get("runOn") if isinstance(ro, dict) else None
         cmd = task.get("command", "")
         argv = task.get("args", [])
         full = _clip((str(cmd) + " " + " ".join(map(str, argv))).strip()) if cmd else task.get("label", "")
@@ -482,6 +484,23 @@ def _read(path: str) -> Optional[str]:
         return None
 
 
+def _oversize(path: str) -> bool:
+    try:
+        return os.path.getsize(path) > MAX_BYTES
+    except OSError:
+        return False
+
+
+def _oversize_finding(rel: str) -> Finding:
+    return Finding(
+        id="config.oversize", title=f"Oversized config: {posixpath.basename(rel)}",
+        severity=Severity.HIGH, surface="config", path=rel, ref="working-tree",
+        detail=f"A known agent/IDE config file exceeds {MAX_BYTES} bytes and was NOT vetted — "
+               "padding is a known evasion, yet the editor/agent may still act on it.",
+        trigger="loaded by the agent/IDE regardless of whether vetgate could read it",
+        recommendation="Open and review this file by hand.", tags=["parse-fail"])
+
+
 def scan_tree(root: str) -> List[Finding]:
     """Scan the working tree on disk (the checked-out files)."""
     root = os.path.abspath(root)
@@ -500,6 +519,8 @@ def scan_tree(root: str) -> List[Finding]:
                 continue
             content = _read(full)
             if content is None:
+                if _oversize(full):
+                    findings.append(_oversize_finding(rel.replace(os.sep, "/")))
                 continue
             findings += analyze_file(rel, content, ref="working-tree")
 

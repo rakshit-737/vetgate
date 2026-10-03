@@ -17,14 +17,16 @@ from typing import List, Optional
 from vetgate import __version__
 from vetgate import report as R
 from vetgate.engine import scan_workspace
-from vetgate.model import Finding, Severity, grade_findings
+from vetgate.model import Finding, Grade, Severity, grade_findings
 
 _FAIL_LEVELS = {"critical": Severity.CRITICAL, "high": Severity.HIGH,
                 "medium": Severity.MEDIUM, "low": Severity.LOW, "none": None}
 
 
-def _emit(findings: List[Finding], meta: dict, target: str, args) -> None:
-    grade = grade_findings(findings)
+def _emit(findings: List[Finding], meta: dict, target: str, args,
+          grade: Optional[Grade] = None) -> None:
+    if grade is None:
+        grade = grade_findings(findings)
     if getattr(args, "json", False):
         print(R.build_json(findings, grade, meta, target))
     else:
@@ -58,10 +60,13 @@ def cmd_scan(args) -> int:
         print(f"vetgate: not a directory: {path}", file=sys.stderr)
         return 2
     findings, meta = scan_workspace(path, all_refs=args.all_refs, max_refs=args.max_refs)
+    # --min-severity is display-only: grade and CI gating use every finding
+    grade = grade_findings(findings)
+    shown = findings
     if args.min_severity:
         floor = Severity.from_str(args.min_severity)
-        findings = [f for f in findings if int(f.severity) >= int(floor)]
-    _emit(findings, meta, path, args)
+        shown = [f for f in findings if int(f.severity) >= int(floor)]
+    _emit(shown, meta, path, args, grade)
     return _exit_code(findings, _FAIL_LEVELS[args.fail_on])
 
 

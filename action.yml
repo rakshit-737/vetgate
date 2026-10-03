@@ -1,0 +1,34 @@
+name: "vetgate"
+description: "Catch what your AI coding agent silently trusts — auto-run surfaces & hidden instructions, across every branch."
+branding:
+  icon: "shield"
+  color: "purple"
+inputs:
+  path:
+    description: "Workspace path to scan"
+    default: "."
+  all-refs:
+    description: "Also sweep every branch/tag/ref (needs fetch-depth: 0)"
+    default: "true"
+  fail-on:
+    description: "Fail the job if a finding at/above this severity exists (critical|high|medium|low|none)"
+    default: "high"
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+    - shell: bash
+      run: pipx install vetgate || pip install --user vetgate
+    - shell: bash
+      run: |
+        ARGS="--fail-on ${{ inputs.fail-on }} --md vetgate-report.md"
+        if [ "${{ inputs.all-refs }}" = "true" ]; then ARGS="--all-refs $ARGS"; fi
+        vetgate scan "${{ inputs.path }}" $ARGS
+    - if: always()
+      shell: bash
+      run: |
+        if [ -f vetgate-report.md ] && [ -n "$GITHUB_STEP_SUMMARY" ]; then
+          cat vetgate-report.md >> "$GITHUB_STEP_SUMMARY"
+        fi

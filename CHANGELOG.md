@@ -11,6 +11,20 @@
   stdout was piped or redirected (cp1252). The CLI and benchmark runner now write UTF-8.
 - Windows: the hidden-branch test was always skipped because git detection shelled out to
   `/dev/null`; it now uses `shutil.which`.
+- Windows: git output from other refs is decoded as UTF-8, not the locale code page, so
+  ref blobs are no longer garbled or dropped.
+- Scans fail closed instead of crashing or under-reporting on a non-dict `runOptions`,
+  deeply nested JSON, a BOM-prefixed config, or a config padded past 512KB (new HIGH
+  `config.oversize` finding).
+- Detection: variation-selector smuggling, PowerShell `$env:` and lowercase `set`
+  assignments, and uppercase Cyrillic/Greek homoglyphs are now caught; emoji ZWJ sequences
+  and a leading BOM are no longer flagged as hidden characters.
+- Watchdog: hashes raw bytes (re-run `vetgate baseline` once after upgrading), reports a
+  garbage `.sig` as tampering instead of crashing, and raises a CRITICAL tamper alert when
+  the baseline is deleted but its signature remains.
+- `--min-severity` now filters display only; grade and exit code use every finding.
+- Markdown reports escape `|` and newlines in table cells.
+- GitHub Action passes inputs via `env:` to prevent script injection.
 
 ## 0.1.0 — first public release
 - **Personal-config watchdog** (`vetgate baseline` / `vetgate watch`): signed baseline of

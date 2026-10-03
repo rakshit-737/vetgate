@@ -7,8 +7,8 @@ Two things no other free tool does:
     non-default branch, where a checked-out-tree scanner can never see them.
 
 Everything else (cross-convention preflight inventory, instruction-file threat
-analysis, the A–F trust grade, the CLI / pre-commit / GitHub Action / MCP
-surfaces) is table-stakes plumbing around those two wedges.
+analysis, the A–F trust grade, the CLI / pre-commit / GitHub Action /
+SessionStart-hook surfaces) is table-stakes plumbing around those two wedges.
 """
 
 __version__ = "0.1.0"

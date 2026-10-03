@@ -6,8 +6,11 @@ two things meant to end up in a screenshot, so they lead the terminal output.
 from __future__ import annotations
 
 import json
+import os
+import pathlib
 from typing import List
 
+from vetgate import __version__
 from vetgate.model import Finding, Grade, Severity
 
 try:
@@ -27,6 +30,21 @@ SEV_COLOR = {
     Severity.INFO: "dim",
 }
 GRADE_COLOR = {"A": "bold green", "B": "green", "C": "yellow", "D": "dark_orange", "F": "bold white on red"}
+SARIF_LEVEL = {
+    Severity.CRITICAL: "error",
+    Severity.HIGH: "error",
+    Severity.MEDIUM: "warning",
+    Severity.LOW: "note",
+    Severity.INFO: "note",
+}
+# GitHub code scanning buckets these: >=9.0 critical, 7.0-8.9 high, 4.0-6.9 medium, 0.1-3.9 low.
+SECURITY_SEVERITY = {
+    Severity.CRITICAL: "9.5",
+    Severity.HIGH: "8.0",
+    Severity.MEDIUM: "5.5",
+    Severity.LOW: "3.0",
+    Severity.INFO: "0.0",
+}
 
 
 def _sorted(findings: List[Finding]) -> List[Finding]:
@@ -143,3 +161,56 @@ def build_markdown(findings: List[Finding], grade: Grade, meta: dict, target: st
         lines += ["", f"_refs swept: {meta['refs_scanned']}/{meta['refs_total']}"
                   + ("  (TRUNCATED at --max-refs)" if meta.get("truncated") else "") + "_"]
     return "\n".join(lines) + "\n"
+
+
+def _sarif_location(f: Finding) -> dict:
+    if os.path.isabs(f.path):
+        artifact = {"uri": pathlib.Path(f.path).as_uri()}
+    else:
+        artifact = {"uri": f.path.replace("\\", "/"), "uriBaseId": "%SRCROOT%"}
+    physical = {"artifactLocation": artifact}
+    if f.line:
+        physical["region"] = {"startLine": f.line}
+    return {"physicalLocation": physical}
+
+
+def build_sarif(findings: List[Finding], grade: Grade, meta: dict, target: str) -> str:
+    rules: dict = {}
+    results = []
+    for f in _sorted(findings):
+        # _sorted is worst-first, so a rule takes the highest severity it is ever reported at
+        rules.setdefault(f.id, {
+            "id": f.id,
+            "shortDescription": {"text": f.title},
+            "help": {"text": f.recommendation or f.title},
+            "properties": {"tags": ["security", f.surface],
+                           "security-severity": SECURITY_SEVERITY[f.severity]},
+        })
+        text = f.title + (f" — {f.detail}" if f.detail else "")
+        if f.trigger:
+            text += f" (triggers: {f.trigger})"
+        if f.only_on_ref:
+            text = f"[hidden on ref '{f.ref}'] {text}"
+        results.append({
+            "ruleId": f.id,
+            "level": SARIF_LEVEL[f.severity],
+            "message": {"text": text},
+            "locations": [_sarif_location(f)],
+            "properties": {"severity": f.severity.label, "surface": f.surface,
+                           "ref": f.ref, "onlyOnRef": f.only_on_ref},
+        })
+    return json.dumps({
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": "vetgate",
+                "version": __version__,
+                "informationUri": "https://github.com/rakshit-737/vetgate",
+                "rules": list(rules.values()),
+            }},
+            "results": results,
+            "properties": {"target": target, "grade": grade.letter, "score": grade.score,
+                           "meta": meta},
+        }],
+    }, indent=2)

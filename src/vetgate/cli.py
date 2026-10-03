@@ -152,7 +152,16 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _utf8_stdio() -> None:
+    # Windows pipes/redirects default to the ANSI code page, which can't encode the report glyphs.
+    for stream in (sys.stdout, sys.stderr):
+        enc = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
+        if enc != "utf8" and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: Optional[List[str]] = None) -> int:
+    _utf8_stdio()
     args = build_parser().parse_args(argv)
     if not getattr(args, "cmd", None):
         build_parser().print_help()

@@ -34,7 +34,7 @@ def _git(root: str, *args: str, timeout: int = 20) -> str:
     try:
         res = subprocess.run(
             ["git", "-C", root, *hard, *args],
-            capture_output=True, text=True, timeout=timeout, env=env,
+            capture_output=True, encoding="utf-8", errors="replace", timeout=timeout, env=env,
         )
     except (OSError, subprocess.TimeoutExpired) as e:
         raise GitError(str(e))
